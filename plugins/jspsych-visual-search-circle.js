@@ -10,6 +10,10 @@
  *
  * documentation: docs.jspsych.org
  *
+ * Edits (made by Josh Eayrs, 06/07/2021):
+ * - Added peripheral flanker stimuli
+ * - Added timeout and blank response screen
+ * - Changed response options from present versus absent to target 1 versus 2
  **/
 
 jsPsych.plugins["visual-search-circle"] = (function() {
@@ -74,17 +78,19 @@ jsPsych.plugins["visual-search-circle"] = (function() {
         default: 250,
         description: 'The diameter of the search array circle in pixels.'
       },
-      target_present_key: {
+      // changed from 'present & absent' to 'target 1 & target 2'
+      // changed default key responses to N & Z
+      target_1_key: {
         type: jsPsych.plugins.parameterType.KEY,
-        pretty_name: 'Target present key',
-        default: 'j',
-        description: 'The key to press if the target is present in the search array.'
+        pretty_name: 'Target 1 key',
+        default: 'n',
+        description: 'The key to press if target 1 is present in the search array.'
       },
-      target_absent_key: {
+      target_2_key: {
         type: jsPsych.plugins.parameterType.KEY,
-        pretty_name: 'Target absent key',
-        default: 'f',
-        description: 'The key to press if the target is not present in the search array.'
+        pretty_name: 'Target 2 key',
+        default: 'z',
+        description: 'The key to press if target 1 is present in the search array.'
       },
       trial_duration: {
         type: jsPsych.plugins.parameterType.INT,
@@ -97,6 +103,20 @@ jsPsych.plugins["visual-search-circle"] = (function() {
         pretty_name: 'Fixation duration',
         default: 1000,
         description: 'How long to show the fixation image for before the search array (in milliseconds).'
+      },
+      // added entry for flanker image
+      flanker_image: {
+        type: jsPsych.plugins.parameterType.IMAGE,
+        pretty_name: 'Flanker image',
+        default: undefined,
+        description: 'Path to image file for the flanker stimuli.'
+      },
+      // added entry for stimulus duration
+      search_array_duration: {
+        type: jsPsych.plugins.parameterType.INT,
+        pretty_name: 'Stimulus duration',
+        default: 200,
+        description: 'How long to show the search stimuli before blank (response) screen (in ms).'
       }
     }
   }
@@ -106,13 +126,22 @@ jsPsych.plugins["visual-search-circle"] = (function() {
     // circle params
     var diam = trial.circle_diameter; // pixels
     var radi = diam / 2;
-    var paper_size = diam + trial.target_size[0];
+    //var paper_size = diam + trial.target_size[0];
 
     // stimuli width, height
     var stimh = trial.target_size[0];
     var stimw = trial.target_size[1];
     var hstimh = stimh / 2;
     var hstimw = stimw / 2;
+
+    // added stimulus dimensions for flankers
+    var flankerh = stimh *1.5;
+    var flankerw = stimw *1.5;
+    var hflankerh = flankerh/2;
+    var hflankerw = flankerw/2;
+    var flanker_offset = hflankerw + (radi * 2);
+    // paper_size moved here to accommodate flankers
+    var paper_size = diam + flanker_offset;
 
     // fixation location
     var fix_loc = [Math.floor(paper_size / 2 - trial.fixation_size[0] / 2), Math.floor(paper_size / 2 - trial.fixation_size[1] / 2)];
@@ -127,6 +156,10 @@ jsPsych.plugins["visual-search-circle"] = (function() {
         Math.floor(paper_size / 2 - (sind(random_offset + (i * (360 / possible_display_locs))) * radi) - hstimh)
       ]);
     }
+
+    // added flanker positions based on flanker offset defined above
+    var flanker_locs = [[Math.floor(paper_size/2) - hflankerw, Math.floor(paper_size/2 + (flanker_offset - hflankerw))],
+                        [Math.floor(paper_size/2) - hflankerw, Math.floor(paper_size/2 - (flanker_offset + hflankerw))]];
 
     // get target to draw on
     display_element.innerHTML += '<div id="jspsych-visual-search-circle-container" style="position: relative; width:' + paper_size + 'px; height:' + paper_size + 'px"></div>';
@@ -171,6 +204,31 @@ jsPsych.plugins["visual-search-circle"] = (function() {
 
       }
 
+      // added the two flanker stimuli, image id determined by 'flanker_image'
+      // locations determined above
+      paper.innerHTML += "<img src='"+trial.flanker_image+"' style='position: absolute; top:"+flanker_locs[0][0]+"px; left:"+flanker_locs[0][1]+"px; width:"+flankerw+"px; height:"+flankerh+"px;'></img>";
+      paper.innerHTML += "<img src='"+trial.flanker_image+"' style='position: absolute; top:"+flanker_locs[1][0]+"px; left:"+flanker_locs[1][1]+"px; width:"+flankerw+"px; height:"+flankerh+"px;'></img>";
+
+      // wait for the 'search_array_duration' and then clear the screen and wait
+      // for a response
+      // NOTE: Here, I've done this by just splitting the 'show_search_array'
+      // function into two, this means responses faster than 'search_array_duration'
+      // won't be recorded - which is fine if that duration is going to be 100ms
+      // or 200ms, but would be problematic for longer displays. Also need to
+      // remember that this probably means I'll have to add 'search_array_duration'
+      // to the eventual recorded RT. An alternative would be to wait 'search_array_duration'
+      // and clear the screen within the same function
+      jsPsych.pluginAPI.setTimeout(function() {
+        // after wait is over
+        show_response_screen();
+      }, trial.search_array_duration);
+    }
+
+      function show_response_screen() {
+
+      // moved from below to clear the screen while waiting for a response
+      clear_display();
+
       var trial_over = false;
 
       var after_response = function(info) {
@@ -179,18 +237,18 @@ jsPsych.plugins["visual-search-circle"] = (function() {
 
         var correct = false;
 
-        if ((jsPsych.pluginAPI.compareKeys(info.key, trial.target_present_key)) && trial.target_present ||
-            (jsPsych.pluginAPI.compareKeys(info.key, trial.target_absent_key)) && !trial.target_present) {
+        if ((jsPsych.pluginAPI.compareKeys(info.key, trial.target_1_key)) &&
+          trial.target == 'img/target1.png' ||
+            (jsPsych.pluginAPI.compareKeys(info.key, trial.target_2_key)) &&
+             !trial.target == 'img/target2.png') {
           correct = true;
         }
-
-        clear_display();
 
         end_trial(info.rt, correct, info.key);
 
       }
 
-      var valid_keys = [trial.target_present_key, trial.target_absent_key];
+      var valid_keys = [trial.target_1_key, trial.target_2_key];
 
       key_listener = jsPsych.pluginAPI.getKeyboardResponse({
         callback_function: after_response,
@@ -236,8 +294,9 @@ jsPsych.plugins["visual-search-circle"] = (function() {
         rt: rt,
         response: key_press,
         locations: display_locs,
-        target_present: trial.target_present,
-        set_size: trial.set_size
+        target_image: trial.target,
+        set_size: trial.set_size,
+        flanker_image: trial.flanker_image
       };
 
       // go to next trial
