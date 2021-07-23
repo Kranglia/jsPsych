@@ -305,7 +305,7 @@ jsPsych.plugins["visual-search-circle"] = (function() {
       // data saving
       var trial_data = {
         correct: correct,
-        rt: rt + search_array_duration,//responses not recorded during stim display
+        rt: rt + trial.search_array_duration,//responses not recorded during stim display
         response: key_press,
         locations: display_locs,
         target_image: trial.target,
