@@ -254,9 +254,13 @@ jsPsych.plugins["visual-search-circle"] = (function() {
         if ((jsPsych.pluginAPI.compareKeys(info.key, trial.target_1_key)) &&
           trial.target == 'img/target1.png' ||
             (jsPsych.pluginAPI.compareKeys(info.key, trial.target_2_key)) &&
-             !trial.target == 'img/target2.png') {
+             trial.target == 'img/target2.png') {
           correct = true;
         }
+        
+        //responses not recorded during stimulus display
+        info.rt = info.rt + trial.search_array_duration,
+
 
         end_trial(info.rt, correct, info.key);
 
@@ -305,7 +309,7 @@ jsPsych.plugins["visual-search-circle"] = (function() {
       // data saving
       var trial_data = {
         correct: correct,
-        rt: rt + trial.search_array_duration,//responses not recorded during stim display
+        rt: rt,
         response: key_press,
         locations: display_locs,
         target_image: trial.target,
