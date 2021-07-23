@@ -117,7 +117,21 @@ jsPsych.plugins["visual-search-circle"] = (function() {
         pretty_name: 'Stimulus duration',
         default: 200,
         description: 'How long to show the search stimuli before blank (response) screen (in ms).'
-      }
+      },
+      // added entry for flanker offset distance
+      flanker_offset: {
+        type: jsPsych.plugins.parameterType.INT,
+        pretty_name: 'Flanker offset',
+        default: 1.5,
+        description: 'How many multiples of the circle radius to offset the flankers (horizontally from the screen center).'
+      },
+      // added entry for flanker size
+      flanker_size: {
+        type: jsPsych.plugins.parameterType.INT,
+        pretty_name: 'Flanker size',
+        default: 1.5,
+        description: 'Size of the flanker stimuli relative to target_size (multiplier).'
+      },
     }
   }
 
@@ -135,11 +149,11 @@ jsPsych.plugins["visual-search-circle"] = (function() {
     var hstimw = stimw / 2;
 
     // added stimulus dimensions for flankers
-    var flankerh = stimh *1.5;
-    var flankerw = stimw *1.5;
+    var flankerh = stimh *trial.flanker_size;
+    var flankerw = stimw *trial.flanker_size;
     var hflankerh = flankerh/2;
     var hflankerw = flankerw/2;
-    var flanker_offset = hflankerw + (radi * 2);
+    var flanker_offset = hflankerw + (radi * trial.flanker_offset);
     // paper_size moved here to accommodate flankers
     var paper_size = diam + flanker_offset;
 
@@ -291,7 +305,7 @@ jsPsych.plugins["visual-search-circle"] = (function() {
       // data saving
       var trial_data = {
         correct: correct,
-        rt: rt,
+        rt: rt + search_array_duration,//responses not recorded during stim display
         response: key_press,
         locations: display_locs,
         target_image: trial.target,
